@@ -14,18 +14,19 @@ import torch.nn as nn
 from torch.autograd import Variable
 from util import to_categorical, CharDataset, evaluate
 
-batch_size = 1024
+batch_size = 128
 train_tokens_fp = './data/train_tokens.txt'
 test_tokens_fp = './data/test_tokens.txt'
 hidden_dim = 64
 dropout1 = 0.2
 dropout2 = 0
 dropout3 = 0.2
-lr = 0.2
-num_epoch = 1000
+lr = 0.5
+num_epoch = 10000
 epoch_print_cycle = 1
-lr_decay_rate = 0.90
-model_path = './data/checkpoint/rnn.pkl'
+lr_decay_rate = 0.5
+lr_decay_epoch = 20
+model_path = './data/checkpoint/rnn2.pkl'
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%m-%d %H:%M', stream=sys.stdout)
 logging.info("PyTorch version: {}".format(torch.__version__))
@@ -132,13 +133,12 @@ try:
                             'epoch_print_cycle': epoch_print_cycle,
                             'lr_decay_rate': lr_decay_rate
                            }, model_path)
-            elif last_val_loss < val_loss and last_train_loss < batch_loss:
-                new_lr = lr * lr_decay_rate
-                logging.info("Learning Rate Decay {} -> {}".format(lr, new_lr))
-                lr = new_lr
-                for param_group in optimizer.param_groups:
-                    param_group['lr'] = lr
             last_val_loss = val_loss
             last_train_loss = batch_loss
+        if epoch % lr_decay_epoch == 0:
+            new_lr = lr * lr_decay_rate
+            logging.info("Learning Rate Decay {} -> {}".format(lr, new_lr))
+            lr = new_lr
+            optimizer = torch.optim.Adam(RNN_model.parameters(), lr=lr)
 except KeyboardInterrupt:
     logging.info("Stop By KeyboardInterrupt...")

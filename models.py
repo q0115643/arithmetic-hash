@@ -78,18 +78,18 @@ class Markov:
         d = a[1:] + (e,)
         return d
     
-    def learn(self, token_counter):
+    def learn(self, train_tokens):
         """Adds states to the dictionary; works best with sentences."""
-        for tok, cnt in token_counter:
+        for tok in train_tokens:
             prev = self.init_chain()
             for c in tok:
                 if prev not in self.states:
                     self.states[prev] = self.empty_counter()
-                self.states[prev][c] += cnt
+                self.states[prev][c] += 1
                 prev = self.step(prev, c)
             if prev not in self.states:
                 self.states[prev] = self.empty_counter()
-            self.states[prev]["<END>"] += cnt
+            self.states[prev]["<END>"] += 1
     
     def get_probs(self, prefix):
         request = self.init_chain()
@@ -110,9 +110,10 @@ class Markov:
 class RNN_Map():
     def __init__(self, model_path, num_node, using_GPU, hidden_dim=64):
         alphabets = list(string.ascii_lowercase)
-        self.alphabet_size = len(alphabets) + 1
-        self.int2char = dict(enumerate(alphabets, start=1))
+        self.alphabet_size = len(alphabets) + 2
+        self.int2char = dict(enumerate(alphabets, start=2))
         self.int2char[0] = '<PAD>'
+        self.int2char[1] = '<END>'
         self.char2int = {char: index for index, char in self.int2char.items()}
         self.RNN_model = CharLSTM(alphabet_size=self.alphabet_size, hidden_dim=hidden_dim)
         self.using_GPU = using_GPU
@@ -139,12 +140,25 @@ class RNN_Map():
                 prev = [torch.Tensor(np.zeros((1, self.alphabet_size)))]
                 prev[0][0][self.char2int[c]] = 1
                 prev = torch.stack(prev)
+            pad_prob = 0
             for idx, prob in enumerate(list(output.cpu().numpy()[0][0])):
-                if self.int2char[idx] == c:
-                    sec_len = prob * sec_len
-                    break
+                if idx == 1:
+                    prob += pad_prob
+                if idx != 0:
+                    if self.int2char[idx] == c:
+                        sec_len = prob * sec_len
+                        break
+                    else:
+                        pos += prob * sec_len
                 else:
-                    pos += prob * sec_len
+                    pad_prob += prob
+        with torch.no_grad():
+            prev = Variable(prev)
+            if self.using_GPU:
+                prev = prev.cuda()
+                hidden = (hidden[0].cuda(), hidden[1].cuda())
+            output, _ = self.RNN_model.forward2(prev, hidden)
+        pos += list(output.cpu().numpy()[0][0])[0] * sec_len
         return pos
     
     def get_node(self, token):
@@ -153,18 +167,14 @@ class RNN_Map():
         return 1 + int(pos // sec_len)
 
 class Markov_Map():
-    def __init__(self, order, train_tokens_csv_fp, num_node):
+    def __init__(self, order, train_tokens_fp, num_node):
         self.markov = Markov(order)
         self.num_node = num_node
-        train_token_counter = []
-        with open(train_tokens_csv_fp) as f:
-            lines = csv.reader(f)
-            next(lines)
-            for line in lines:
-                tok = line[0]
-                cnt = int(line[1])
-                train_token_counter.append(tuple([tok, cnt]))
-        self.markov.learn(train_token_counter)
+        train_tokens = []
+        with open(train_tokens_fp) as f:
+            train_tokens = f.readlines()
+            train_tokens = [x.strip() for x in train_tokens] 
+        self.markov.learn(train_tokens)
 
     def get_pos(self, token):
         assert len(token) > 0
@@ -201,12 +211,6 @@ class Markov_Map():
         for tok, cnt in output.items():
             prob = (1. + float(cnt))/(float(total_cnt) + self.markov.alphabet_size)
             char_probs.append(tuple([tok, prob]))
-        for tok, prob in char_probs:
-            if tok == "<END>":
-                sec_len = prob * sec_len
-                break
-            else:
-                pos += prob * sec_len
         return pos
 
     def get_node(self, token):

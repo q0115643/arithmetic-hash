@@ -10,8 +10,8 @@ from sklearn.model_selection import train_test_split
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%m-%d %H:%M', stream=sys.stdout)
 brown_fp = './data/corpora/brown.txt'
-train_tokens_csv_fp = './data/train_tokens.csv'
-test_tokens_csv_fp = './data/test_tokens.csv'
+train_tokens_fp = './data/train_tokens.txt'
+test_tokens_fp = './data/test_tokens.txt'
 
 tokens = []
 logging.info('Tokenizing Brown Corpus...')
@@ -20,37 +20,15 @@ with open(brown_fp, 'r') as brown:
     for line in tqdm(brown, total=len(brown)):
         words = word_tokenize(only_alphabets(line))
         tokens += words
-logging.info("Writing Token-Count info on new csv file...")
+logging.info("Writing Token-Count info on new txt file...")
 train_tokens, test_tokens = train_test_split(tokens, test_size=0.1)
-with open(train_tokens_csv_fp, 'w') as csvfile:
-    fieldnames = [
-        'token',
-        'count'
-    ]
-    writer = csv.DictWriter(
-        csvfile,
-        fieldnames=fieldnames,
-        quoting=csv.QUOTE_ALL)
-    writer.writeheader()
-    output = []
-    token_counter = sorted(Counter(train_tokens).items(), key=lambda pair: pair[1], reverse=True)
-    for tok, cnt in tqdm(token_counter):
-        output.append({'token': tok,
-                       'count': cnt})
-    writer.writerows(output)
-with open(test_tokens_csv_fp, 'w') as csvfile:
-    fieldnames = [
-        'token',
-        'count'
-    ]
-    writer = csv.DictWriter(
-        csvfile,
-        fieldnames=fieldnames,
-        quoting=csv.QUOTE_ALL)
-    writer.writeheader()
-    output = []
-    token_counter = sorted(Counter(test_tokens).items(), key=lambda pair: pair[1], reverse=True)
-    for tok, cnt in tqdm(token_counter):
-        output.append({'token': tok,
-                       'count': cnt})
-    writer.writerows(output)
+with open(train_tokens_fp, 'w') as writeFile:
+    train_tokens = list(set(train_tokens))
+    train_tokens = sorted(train_tokens, key = lambda s : s.lower())
+    for token in train_tokens:
+        writeFile.write("%s\n" % token)
+with open(test_tokens_fp, 'w') as writeFile:
+    test_tokens = list(set(test_tokens))
+    test_tokens = sorted(test_tokens, key = lambda s : s.lower())
+    for token in test_tokens:
+        writeFile.write("%s\n" % token)

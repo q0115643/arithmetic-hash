@@ -6,6 +6,7 @@ from torch.autograd import Variable
 import torch
 import string
 import numpy as np
+import csv
 
 
 class CharLSTM(nn.ModuleList):
@@ -52,7 +53,10 @@ class Markov:
             self.order = order
         else:
             raise Exception('Markov Chain order cannot be negative or zero.')
-        self.states[self.init_chain()] = self.empty_counter()
+        state = self.init_chain()
+        self.states[state] = self.empty_counter()
+        alphabets = list(string.ascii_lowercase)
+        self.alphabet_size = len(alphabets) + 1
         
     def init_chain(self):
         """Helper function to generate the correct initial chain value."""
@@ -63,6 +67,7 @@ class Markov:
     
     def empty_counter(self):
         empty_cnt = {}
+        empty_cnt["<END>"] = 0
         alphabets = list(string.ascii_lowercase)
         for a in alphabets:
             empty_cnt[a] = 0
@@ -80,9 +85,11 @@ class Markov:
             for c in tok:
                 if prev not in self.states:
                     self.states[prev] = self.empty_counter()
-                curr = self.step(prev, c)
                 self.states[prev][c] += cnt
-                prev = curr
+                prev = self.step(prev, c)
+            if prev not in self.states:
+                self.states[prev] = self.empty_counter()
+            self.states[prev]["<END>"] += cnt
     
     def get_probs(self, prefix):
         request = self.init_chain()
@@ -95,9 +102,10 @@ class Markov:
         for tok, cnt in char_counter.items():
             total_cnt += cnt
         for tok, cnt in char_counter.items():
-            prob = float(cnt)/float(total_cnt)
+            prob = (1. + float(cnt))/(float(total_cnt) + self.alphabet_size)
             char_probs.append(tuple([tok, prob]))
         return char_probs
+
 
 class RNN_Map():
     def __init__(self, model_path, num_node, using_GPU, hidden_dim=64):
@@ -139,6 +147,68 @@ class RNN_Map():
                     pos += prob * sec_len
         return pos
     
+    def get_node(self, token):
+        sec_len = 1. / self.num_node
+        pos = self.get_pos(token)
+        return 1 + int(pos // sec_len)
+
+class Markov_Map():
+    def __init__(self, order, train_tokens_csv_fp, num_node):
+        self.markov = Markov(order)
+        self.num_node = num_node
+        train_token_counter = []
+        with open(train_tokens_csv_fp) as f:
+            lines = csv.reader(f)
+            next(lines)
+            for line in lines:
+                tok = line[0]
+                cnt = int(line[1])
+                train_token_counter.append(tuple([tok, cnt]))
+        self.markov.learn(train_token_counter)
+
+    def get_pos(self, token):
+        assert len(token) > 0
+        pos = 0
+        sec_len = 1
+        prev = self.markov.init_chain()
+        for c in token:
+            if prev in self.markov.states:
+                output = self.markov.states[prev]
+            else:
+                output = self.markov.empty_counter()
+            char_probs = []
+            total_cnt = 0
+            for tok, cnt in output.items():
+                total_cnt += cnt
+            for tok, cnt in output.items():
+                prob = (1. + float(cnt))/(float(total_cnt) + self.markov.alphabet_size)
+                char_probs.append(tuple([tok, prob]))
+            for tok, prob in char_probs:
+                if tok == c:
+                    sec_len = prob * sec_len
+                    break
+                else:
+                    pos += prob * sec_len
+            prev = self.markov.step(prev, c)
+        if prev in self.markov.states:
+            output = self.markov.states[prev]
+        else:
+            output = self.markov.empty_counter()
+        char_probs = []
+        total_cnt = 0
+        for tok, cnt in output.items():
+            total_cnt += cnt
+        for tok, cnt in output.items():
+            prob = (1. + float(cnt))/(float(total_cnt) + self.markov.alphabet_size)
+            char_probs.append(tuple([tok, prob]))
+        for tok, prob in char_probs:
+            if tok == "<END>":
+                sec_len = prob * sec_len
+                break
+            else:
+                pos += prob * sec_len
+        return pos
+
     def get_node(self, token):
         sec_len = 1. / self.num_node
         pos = self.get_pos(token)

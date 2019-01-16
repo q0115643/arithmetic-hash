@@ -5,6 +5,7 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from torch.autograd import Variable
 import torch
 import string
+import numpy as np
 
 
 class CharLSTM(nn.ModuleList):
@@ -97,3 +98,48 @@ class Markov:
             prob = float(cnt)/float(total_cnt)
             char_probs.append(tuple([tok, prob]))
         return char_probs
+
+class RNN_Map():
+    def __init__(self, model_path, num_node, using_GPU, hidden_dim=64):
+        alphabets = list(string.ascii_lowercase)
+        self.alphabet_size = len(alphabets) + 1
+        self.int2char = dict(enumerate(alphabets, start=1))
+        self.int2char[0] = '<PAD>'
+        self.char2int = {char: index for index, char in self.int2char.items()}
+        self.RNN_model = CharLSTM(alphabet_size=self.alphabet_size, hidden_dim=hidden_dim)
+        self.using_GPU = using_GPU
+        if self.using_GPU:
+            self.RNN_model = self.RNN_model.cuda()
+        state = torch.load(model_path)
+        self.RNN_model.load_state_dict(state['model'])
+        self.RNN_model.eval()
+        self.num_node = num_node
+    
+    def get_pos(self, token):
+        assert len(token) > 0
+        hidden = self.RNN_model.init_hidden()
+        pos = 0
+        sec_len = 1
+        prev = torch.stack([torch.Tensor(np.zeros((1, self.alphabet_size)))])
+        for c in token:
+            with torch.no_grad():
+                prev = Variable(prev)
+                if self.using_GPU:
+                    prev = prev.cuda()
+                    hidden = (hidden[0].cuda(), hidden[1].cuda())
+                output, hidden = self.RNN_model.forward2(prev, hidden)
+                prev = [torch.Tensor(np.zeros((1, self.alphabet_size)))]
+                prev[0][0][self.char2int[c]] = 1
+                prev = torch.stack(prev)
+            for idx, prob in enumerate(list(output.cpu().numpy()[0][0])):
+                if self.int2char[idx] == c:
+                    sec_len = prob * sec_len
+                    break
+                else:
+                    pos += prob * sec_len
+        return pos
+    
+    def get_node(self, token):
+        sec_len = 1. / self.num_node
+        pos = self.get_pos(token)
+        return 1 + int(pos // sec_len)

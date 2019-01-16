@@ -4,12 +4,13 @@ from allennlp.nn.util import sort_batch_by_length
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
 from torch.autograd import Variable
 import torch
+import string
+
 
 class CharLSTM(nn.ModuleList):
-    def __init__(self, alphabet_size, hidden_dim, batch_size, dropout1=0.2, dropout2=0, dropout3=0.2):
+    def __init__(self, alphabet_size, hidden_dim, dropout1=0.2, dropout2=0, dropout3=0.2):
         super(CharLSTM, self).__init__()
         self.hidden_dim = hidden_dim
-        self.batch_size = batch_size
         self.alphabet_size = alphabet_size
         self.dropout_to_LSTM = nn.Dropout(dropout1)
         self.rnn = nn.LSTM(input_size=alphabet_size, hidden_size=hidden_dim,
@@ -39,3 +40,60 @@ class CharLSTM(nn.ModuleList):
     def init_hidden(self):
         return (Variable(torch.zeros(1, 1, self.hidden_dim)),
                 Variable(torch.zeros(1, 1, self.hidden_dim)))
+
+
+class Markov:
+    """An nth-Order Markov Chain class with some lexical processing elements."""
+    def __init__(self, order):
+        """Initialized with a delimiting character (usually a space) and the order of the Markov chain."""
+        self.states = {}
+        if order > 0:
+            self.order = order
+        else:
+            raise Exception('Markov Chain order cannot be negative or zero.')
+        self.states[self.init_chain()] = self.empty_counter()
+        
+    def init_chain(self):
+        """Helper function to generate the correct initial chain value."""
+        init = []
+        for i in range(self.order):
+            init.append('');
+        return tuple(init)
+    
+    def empty_counter(self):
+        empty_cnt = {}
+        alphabets = list(string.ascii_lowercase)
+        for a in alphabets:
+            empty_cnt[a] = 0
+        return empty_cnt
+
+    def step(self, a, e):
+        """Helper function that pops the end of tuple 'a' and tags on str 'e'."""
+        d = a[1:] + (e,)
+        return d
+    
+    def learn(self, token_counter):
+        """Adds states to the dictionary; works best with sentences."""
+        for tok, cnt in token_counter:
+            prev = self.init_chain()
+            for c in tok:
+                if prev not in self.states:
+                    self.states[prev] = self.empty_counter()
+                curr = self.step(prev, c)
+                self.states[prev][c] += cnt
+                prev = curr
+    
+    def get_probs(self, prefix):
+        request = self.init_chain()
+        if len(prefix) > 0:
+            for c in prefix:
+                request = self.step(request, c)
+        char_counter = self.states[request]
+        char_probs = []
+        total_cnt = 0
+        for tok, cnt in char_counter.items():
+            total_cnt += cnt
+        for tok, cnt in char_counter.items():
+            prob = float(cnt)/float(total_cnt)
+            char_probs.append(tuple([tok, prob]))
+        return char_probs

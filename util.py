@@ -3,6 +3,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 from torch.autograd import Variable
+import math
 
 
 def list_to_string(list_tokens):
@@ -91,3 +92,12 @@ class CharDataset(Dataset):
         return (torch.stack(batch_inputs),
                 torch.LongTensor(batch_targets),
                 torch.LongTensor(batch_lengths))
+
+def get_stddev(num_node, num_token, cnt_per_node):
+    avg_node = num_token/float(num_node)
+    variance = 0
+    for cnt in cnt_per_node:
+        diff = cnt - avg_node
+        variance += diff*diff
+    std_dev = math.sqrt(variance/num_token)
+    return std_dev

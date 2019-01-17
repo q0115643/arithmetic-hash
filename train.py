@@ -14,7 +14,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 from util import to_categorical, CharDataset, evaluate
 
-batch_size = 1024
+batch_size = 512
 train_tokens_fp = './data/train_tokens.txt'
 test_tokens_fp = './data/test_tokens.txt'
 hidden_dim = 64
@@ -22,10 +22,10 @@ dropout1 = 0.2
 dropout2 = 0
 dropout3 = 0.2
 lr = 0.2
-num_epoch = 1000
+num_epoch = 10000
 epoch_print_cycle = 1
-lr_decay_rate = 0.90
-model_path = './data/checkpoint/rnn.pkl'
+lr_decay_rate = 0.9
+model_path = './data/checkpoint/rnn3.pkl'
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%m-%d %H:%M', stream=sys.stdout)
 logging.info("PyTorch version: {}".format(torch.__version__))

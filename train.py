@@ -18,15 +18,15 @@ import argparse
 
 def get_args():
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('--corpus', type=int, default='coca',
+    parser.add_argument('--corpus', type=str, default='coca',
                        help='if set brown, does not use gram_num')
     parser.add_argument('--gram_num', type=int, default=2)
     parser.add_argument('--lr', type=float, default=0.05)
     parser.add_argument('--lr_decay_rate', type=float, default=0.1)
     parser.add_argument('--batch_size', type=int, default=9192)
-    parser.add_argument('--iter_print_cycle', type=int, default=100
+    parser.add_argument('--iter_print_cycle', type=int, default=100,
                         help='for coca corpus')
-    parser.add_argument('--epoch_print_cycle', type=int, default=1
+    parser.add_argument('--epoch_print_cycle', type=int, default=1,
                         help='for brown corpus')
     parser.add_argument('--load_model', type=bool, default=False)
     args = parser.parse_args()
@@ -47,7 +47,7 @@ iter_print_cycle = args.iter_print_cycle
 epoch_print_cycle = args.epoch_print_cycle
 lr_decay_rate = args.lr_decay_rate
 
-if args.corpus = 'brown':
+if args.corpus == 'brown':
     hidden_dim = 64
     dropout1 = 0.2
     dropout2 = 0
@@ -171,7 +171,7 @@ if args.corpus = 'brown':
                 last_train_loss = batch_loss
     except KeyboardInterrupt:
         logging.info("Stop By KeyboardInterrupt...")
-elif args.corpus = 'coca':
+elif args.corpus == 'coca':
     gram_num = args.gram_num
     load_model = args.load_model
     batch_size = args.batch_size

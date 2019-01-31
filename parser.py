@@ -12,7 +12,7 @@ import re
 
 def get_args():
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('--corpus', type=int, default='coca',
+    parser.add_argument('--corpus', type=str, default='coca',
                        help='if set brown, does not use gram_num')
     parser.add_argument('--gram_num', type=int, default=2)
     args = parser.parse_args()
@@ -22,7 +22,7 @@ def get_args():
 args = get_args()
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%m-%d %H:%M', stream=sys.stdout)
 
-if args.corpus = 'brown':
+if args.corpus == 'brown':
     brown_fp = './data/corpora/brown.txt'
     train_tokens_fp = './data/brown/train_tokens.txt'
     val_tokens_fp = './data/brown/val_tokens.txt'
@@ -53,7 +53,7 @@ if args.corpus = 'brown':
         test_tokens = sorted(list(set(test_tokens)), key = lambda s : s.lower())
         for token in tqdm(test_tokens):
             writeFile.write("%s\n" % token)
-elif args.corpus = 'coca':
+elif args.corpus == 'coca':
     gram_num = args.gram_num
     coca_fp = './data/corpora/coca_' + str(gram_num) + 'gram.txt'
     train_tokens_fp = './data/coca/' + str(gram_num) + 'gram/train_tokens.txt'

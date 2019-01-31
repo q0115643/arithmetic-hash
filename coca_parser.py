@@ -5,8 +5,19 @@ from util import list_to_string, only_alphabets
 import csv
 import sys
 import logging
+import re
+import argparse
 from sklearn.model_selection import train_test_split
-gram_num = 2
+
+def get_args():
+    parser = argparse.ArgumentParser(description='')
+    parser.add_argument('--gram_num', type=int, default=2)
+    parser.add_argument('--load_model', type=bool, default=False)
+    args = parser.parse_args()
+    return args
+
+args = get_args()
+gram_num = args.gram_num
 
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%m-%d %H:%M', stream=sys.stdout)
 coca_fp = './data/corpora/coca_' + str(gram_num) + 'gram.txt'
@@ -19,15 +30,20 @@ logging.info('Tokenizing Brown Corpus...')
 with open(coca_fp, 'r') as coca:
     coca = list(coca)
     for line in tqdm(coca, total=len(coca)):
-        items = [item.rstrip("\r\n") for item in line.split('\t')]
+        items = [item.strip() for item in line.split('\t')]
         freq = int(items[0])
-        token = items[1] + '_' + items[2]
-        for _ in range(freq):
-            tokens.append(token)
+        if freq > 1:
+            token = ''
+            for i in range(gram_num):
+                if i != 0:
+                    token += '_'
+                token += re.sub(r"\s+", "", only_alphabets(items[i+1]))
+            for _ in range(freq-1):
+                tokens.append(token)
 logging.info("Number of Tokens: {}".format(len(tokens)))
 logging.info("Number of Different Tokens: {}".format(len(list(set(tokens)))))
 train_tokens, test_tokens = train_test_split(tokens, test_size=0.1)
-train_tokens, val_tokens = train_test_split(train_tokens, test_size=0.05)
+train_tokens, val_tokens = train_test_split(train_tokens, test_size=0.1)
 train_tokens = list(set(train_tokens))
 val_tokens = list(set(val_tokens))
 test_tokens = list(set(test_tokens))

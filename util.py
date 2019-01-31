@@ -6,6 +6,12 @@ from torch.autograd import Variable
 import math
 
 
+def fp_to_list(fp):  
+    with open(fp) as f:
+        tokens = f.readlines()
+        tokens = [x.strip() for x in tokens]
+    return tokens
+
 def list_to_string(list_tokens):
     res = ''
     first = True

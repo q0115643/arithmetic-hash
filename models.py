@@ -7,6 +7,7 @@ import torch
 import string
 import numpy as np
 import csv
+from tqdm import tqdm
 
 
 class CharLSTM(nn.ModuleList):
@@ -46,7 +47,7 @@ class CharLSTM(nn.ModuleList):
 
 class Markov:
     """An nth-Order Markov Chain class with some lexical processing elements."""
-    def __init__(self, order):
+    def __init__(self, order, alphabets=list(string.ascii_lowercase)):
         """Initialized with a delimiting character (usually a space) and the order of the Markov chain."""
         self.states = {}
         if order > 0:
@@ -54,8 +55,8 @@ class Markov:
         else:
             raise Exception('Markov Chain order cannot be negative or zero.')
         state = self.init_chain()
+        self.alphabets = alphabets
         self.states[state] = self.empty_counter()
-        alphabets = list(string.ascii_lowercase)
         self.alphabet_size = len(alphabets) + 1
         
     def init_chain(self):
@@ -68,8 +69,7 @@ class Markov:
     def empty_counter(self):
         empty_cnt = {}
         empty_cnt["<END>"] = 0
-        alphabets = list(string.ascii_lowercase)
-        for a in alphabets:
+        for a in self.alphabets:
             empty_cnt[a] = 0
         return empty_cnt
 
@@ -108,8 +108,8 @@ class Markov:
 
 
 class RNN_Map():
-    def __init__(self, model_path, num_node, using_GPU, hidden_dim=64):
-        alphabets = list(string.ascii_lowercase)
+    def __init__(self, model_path, num_node, using_GPU, hidden_dim=64, alphabets=list(string.ascii_lowercase)):
+        self.alphabets = alphabets
         self.alphabet_size = len(alphabets) + 2
         self.int2char = dict(enumerate(alphabets, start=2))
         self.int2char[0] = '<PAD>'
@@ -165,15 +165,18 @@ class RNN_Map():
         sec_len = 1. / self.num_node
         pos = self.get_pos(token)
         return 1 + int(pos // sec_len)
+    
+    def cnt_per_node(self, num_node, test_tokens):
+        cnt_per_node = [0] * num_node
+        for token in tqdm(test_tokens):
+            node_num = self.get_node(token)
+            cnt_per_node[node_num - 1] += 1
+        return cnt_per_node
 
 class Markov_Map():
-    def __init__(self, order, train_tokens_fp, num_node):
-        self.markov = Markov(order)
+    def __init__(self, order, train_tokens, num_node, alphabets=list(string.ascii_lowercase)):
+        self.markov = Markov(order, alphabets=alphabets)
         self.num_node = num_node
-        train_tokens = []
-        with open(train_tokens_fp) as f:
-            train_tokens = f.readlines()
-            train_tokens = [x.strip() for x in train_tokens] 
         self.markov.learn(train_tokens)
 
     def get_pos(self, token):
@@ -217,3 +220,10 @@ class Markov_Map():
         sec_len = 1. / self.num_node
         pos = self.get_pos(token)
         return 1 + int(pos // sec_len)
+
+    def cnt_per_node(self, num_node, test_tokens):
+        cnt_per_node = [0] * num_node
+        for token in tqdm(test_tokens):
+            node_num = self.get_node(token)
+            cnt_per_node[node_num - 1] += 1
+        return cnt_per_node

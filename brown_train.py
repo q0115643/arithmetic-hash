@@ -58,11 +58,6 @@ with open(val_tokens_fp) as f:
     val_tokens = f.readlines()
     val_tokens = [x.strip() for x in val_tokens] 
 val_tokens = [np.array([char2int[char] for char in token] + [char2int["<END>"]]) for token in val_tokens]
-test_tokens = []
-with open(test_tokens_fp) as f:
-    test_tokens = f.readlines()
-    test_tokens = [x.strip() for x in test_tokens] 
-test_tokens = [np.array([char2int[char] for char in token] + [char2int["<END>"]]) for token in test_tokens]
 encoded_train_tokens = []
 logging.info('One-hot Encoding Train Tokens...')
 for token in tqdm(train_tokens):
@@ -71,13 +66,8 @@ encoded_val_tokens = []
 logging.info('One-hot Encoding Validation Tokens...')
 for token in tqdm(val_tokens):
     encoded_val_tokens.append(to_categorical(token, alphabet_size))
-encoded_test_tokens = []
-logging.info('One-hot Encoding Test Tokens...')
-for token in tqdm(test_tokens):
-    encoded_test_tokens.append(to_categorical(token, alphabet_size))
 training_dataset = CharDataset(encoded_train_tokens)
 val_dataset = CharDataset(encoded_val_tokens)
-test_dataset = CharDataset(encoded_test_tokens)
 train_dataloader = DataLoader(dataset=training_dataset,
                               batch_size=batch_size,
                               shuffle=True,
@@ -86,11 +76,6 @@ val_dataloader = DataLoader(dataset=val_dataset,
                             batch_size=batch_size,
                             shuffle=False,
                             collate_fn=CharDataset.collate_fn)
-test_dataloader = DataLoader(dataset=test_dataset,
-                             batch_size=batch_size,
-                             shuffle=False,
-                             collate_fn=CharDataset.collate_fn)
-
 logging.info("*"*30)
 logging.info("Train Model")
 logging.info("*"*30)

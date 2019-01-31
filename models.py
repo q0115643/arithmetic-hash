@@ -46,9 +46,7 @@ class CharLSTM(nn.ModuleList):
 
 
 class Markov:
-    """An nth-Order Markov Chain class with some lexical processing elements."""
     def __init__(self, order, alphabets=list(string.ascii_lowercase)):
-        """Initialized with a delimiting character (usually a space) and the order of the Markov chain."""
         self.states = {}
         if order > 0:
             self.order = order
@@ -60,7 +58,6 @@ class Markov:
         self.alphabet_size = len(alphabets) + 1 # for <END>
         
     def init_chain(self):
-        """Helper function to generate the correct initial chain value."""
         init = []
         for i in range(self.order):
             init.append('');
@@ -74,12 +71,10 @@ class Markov:
         return empty_cnt
 
     def step(self, a, e):
-        """Helper function that pops the end of tuple 'a' and tags on str 'e'."""
         d = a[1:] + (e,)
         return d
     
     def learn(self, train_tokens):
-        """Adds states to the dictionary; works best with sentences."""
         for tok in train_tokens:
             prev = self.init_chain()
             for c in tok:
@@ -287,4 +282,52 @@ class Markov_Map():
                 break
             token += tok
             prev = self.markov.step(prev, tok)
+        return token
+
+class Simple_Map():
+    def __init__(self, num_node, alphabets=list(string.ascii_lowercase)):
+        self.num_node = num_node
+        self.alphabets = ['<END>'] + alphabets
+        self.alphabet_size = len(self.alphabets)
+
+    def encode(self, token):
+        assert len(token) > 0
+        pos = 0
+        sec_len = 1
+        for idx, c in enumerate(token):
+            for alphabet in self.alphabets:
+                if c == alphabet:
+                    break
+                else:
+                    pos += sec_len / float(self.alphabet_size)
+            sec_len /= float(self.alphabet_size)
+        return pos
+
+    def get_node(self, token):
+        sec_len = 1. / self.num_node
+        pos = self.encode(token)
+        return 1 + int(pos // sec_len)
+
+    def cnt_per_node(self, num_node, test_tokens):
+        cnt_per_node = [0] * num_node
+        for token in tqdm(test_tokens):
+            node_num = self.get_node(token)
+            cnt_per_node[node_num - 1] += 1
+        return cnt_per_node
+    
+    def decode(self, pos):
+        token = ''
+        sec_len = 1
+        std = 0
+        while True:
+            for tok in self.alphabets:
+                std += sec_len / float(self.alphabet_size)
+                if pos < std:
+                    tok = tok
+                    std -= sec_len / float(self.alphabet_size)
+                    sec_len /= float(self.alphabet_size)
+                    break
+            if tok == "<END>":
+                break
+            token += tok
         return token
